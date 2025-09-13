@@ -1,0 +1,60 @@
+trigger: none
+pool: InfraVM
+
+jobs:
+- job: build
+  displayName: buildinfra
+  steps:
+    - task: TerraformInstaller@1
+      displayName: Install Terraform
+      inputs:
+        terraformVersion: '1.13.2'
+
+    # init using backend info from your .tf files
+    - task: TerraformTask@5
+      displayName: Terraform Init (build)
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendServiceArm: 'ServiceVM'
+        backendAzureRmOverrideSubscriptionID: 'b35c9afa-9045-49a7-852b-e7bffe5ca332' # from provider.tf
+        backendAzureRmResourceGroupName: 'kolkata-resource'
+        backendAzureRmStorageAccountName: 'kolkata7401'
+        backendAzureRmContainerName: 'kolkata-container'
+        backendAzureRmKey: 'kolkata.tfstate'
+
+    - task: TerraformTask@5
+      displayName: Terraform Validate (build)
+      inputs:
+        provider: 'azurerm'
+        command: 'validate'
+
+- job: Install
+  displayName: Terraform Install
+  dependsOn: build
+  condition: succeeded('build')
+  steps:
+    - task: TerraformInstaller@1
+      displayName: Install Terraform (install job)
+      inputs:
+        terraformVersion: '1.13.2'
+
+    - task: TerraformTask@5
+      displayName: Terraform Init (install)
+      inputs:
+        provider: 'azurerm'
+        command: 'init'
+        backendServiceArm: 'ServiceVM'
+        backendAzureRmOverrideSubscriptionID: 'b35c9afa-9045-49a7-852b-e7bffe5ca332'
+        backendAzureRmResourceGroupName: 'kolkata-resource'
+        backendAzureRmStorageAccountName: 'kolkata7401'
+        backendAzureRmContainerName: 'kolkata-container'
+        backendAzureRmKey: 'kolkata.tfstate'
+
+    - task: TerraformTask@5
+      displayName: Terraform Apply (install)
+      inputs:
+        provider: 'azurerm'
+        command: 'apply'
+        commandOptions: '-auto-approve'
+        environmentServiceNameAzureRM: 'ServiceVM'
